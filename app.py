@@ -359,6 +359,7 @@ tab1, tab3, tab4, tab5 = st.tabs([
 # ========== Visão Geral ==========
 with tab1:
     st.header(f'Análise Comparativa: Inflação de Alimentos (IE) vs. INPC em {ano_foco}')
+    st.markdown(f'Qual a influência da inflação no preço bens essenciais como alimentos? Qual o impacto da inflação desses preços no poder de compra de familias de baixa renda?')
     
     if not df_foco.empty:
         # --- 1. Funções para gerar os textos de ajuda dinâmicos ---
