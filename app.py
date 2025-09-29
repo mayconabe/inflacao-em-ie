@@ -329,6 +329,7 @@ alims_opt = load_csv(alims_file) if os.path.exists(alims_file) else pd.DataFrame
 
 st.title('Inflação de Alimentos (IPCA) vs INPC — Visão Mensal e Anual')
 st.caption('Fontes: Ipeadata/IBGE (INPC), DIEESE (Cesta Básica).')
+st.markdown(f'Qual a influência da inflação no preço bens essenciais como alimentos? Qual o impacto da inflação desses preços no poder de compra de familias de baixa renda?')
 
 if df.empty:
     st.error('Arquivo `dataset_analitico.csv` não encontrado. Este arquivo é essencial para o dashboard.')
@@ -359,7 +360,6 @@ tab1, tab3, tab4, tab5 = st.tabs([
 # ========== Visão Geral ==========
 with tab1:
     st.header(f'Análise Comparativa: Inflação de Alimentos (IE) vs. INPC em {ano_foco}')
-    st.markdown(f'Qual a influência da inflação no preço bens essenciais como alimentos? Qual o impacto da inflação desses preços no poder de compra de familias de baixa renda?')
     
     if not df_foco.empty:
         # --- 1. Funções para gerar os textos de ajuda dinâmicos ---
