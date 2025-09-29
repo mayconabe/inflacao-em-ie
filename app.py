@@ -329,8 +329,8 @@ alims_opt = load_csv(alims_file) if os.path.exists(alims_file) else pd.DataFrame
 
 st.title('Inflação de Alimentos (IPCA) vs INPC — Visão Mensal e Anual')
 st.caption('Fontes: Ipeadata/IBGE (INPC(Índice Nacional de Preços ao Consumidor)), DIEESE (Cesta Básica).')
-st.markdown(f'**Tema: **Qual a influência da inflação no preço bens essenciais como alimentos? Qual o impacto da inflação desses preços no poder de compra de familias de baixa renda?')
-st.markdown(f'**Objetivo: **Identificar e explorar o impacto da inflação de bens essenciais (alimentos) sobre o poder de compra das famílias de baixa renda.')
+st.markdown(f'Tema: Qual a influência da inflação no preço bens essenciais como alimentos? Qual o impacto da inflação desses preços no poder de compra de familias de baixa renda?')
+st.markdown(f'Objetivo: Identificar e explorar o impacto da inflação de bens essenciais (alimentos) sobre o poder de compra das famílias de baixa renda.')
 
 if df.empty:
     st.error('Arquivo `dataset_analitico.csv` não encontrado. Este arquivo é essencial para o dashboard.')
