@@ -506,6 +506,7 @@ with tab3:
 # ========== Previsões ==========
 with tab4:
     st.header('Previsões de Curto Prazo')
+    st.markdown("As variáveis utilizadas foram ipca_alimentos_mom(Inflação mensal dos alimentos) e valor_cesta(Valor da cesta básica).")
 
     help_sarimax = """
     O SARIMAX é um modelo estatístico avançado para prever valores futuros em uma série de dados que possui tendências e padrões sazonais (que se repetem em períodos fixos, como anualmente).
