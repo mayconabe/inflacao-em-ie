@@ -329,8 +329,8 @@ alims_opt = load_csv(alims_file) if os.path.exists(alims_file) else pd.DataFrame
 
 st.title('Inflação de Alimentos (IPCA) vs INPC — Visão Mensal e Anual')
 st.caption('Fontes: Ipeadata/IBGE (INPC(Índice Nacional de Preços ao Consumidor)), DIEESE (Cesta Básica).')
-st.markdown(f'Tema: Qual a influência da inflação no preço bens essenciais como alimentos? Qual o impacto da inflação desses preços no poder de compra de familias de baixa renda?')
-st.markdown(f'Objetivo: Identificar e explorar o impacto da inflação de bens essenciais (alimentos) sobre o poder de compra das famílias de baixa renda.')
+st.markdown(f'**Tema: **Qual a influência da inflação no preço bens essenciais como alimentos? Qual o impacto da inflação desses preços no poder de compra de familias de baixa renda?')
+st.markdown(f'**Objetivo: **Identificar e explorar o impacto da inflação de bens essenciais (alimentos) sobre o poder de compra das famílias de baixa renda.')
 
 if df.empty:
     st.error('Arquivo `dataset_analitico.csv` não encontrado. Este arquivo é essencial para o dashboard.')
@@ -506,59 +506,76 @@ with tab3:
 # ========== Previsões ==========
 with tab4:
     st.header('Previsões de Curto Prazo')
-    
-    # Texto de ajuda para explicar a metodologia da previsão
-    help_previsao = """
-    **Variável Alvo:** Custo em Reais (R$) da Cesta Básica (DIEESE). É o que queremos prever.
-    
-    **Variável Explicativa (Exógena):** Inflação mensal de Alimentos (IPCA). Usamos a inflação como um fator que ajuda a explicar e prever as variações no custo da cesta.
-    
-    **Modelo Escolhido: SARIMAX**
-    É um modelo estatístico avançado para prever valores futuros, ideal para dados com:
-    - **Sazonalidade (S):** Padrões que se repetem anualmente (ex: safras).
-    - **Tendência e Autocorrelação (AR, I, MA):** Considera o histórico de preços e a tendência de alta.
-    - **Variáveis Externas (X):** Permite incluir a influência da inflação de alimentos na previsão do custo final da cesta.
+
+    help_sarimax = """
+    O SARIMAX é um modelo estatístico avançado para prever valores futuros em uma série de dados que possui tendências e padrões sazonais (que se repetem em períodos fixos, como anualmente).
+
+    - **S** (Seasonal): Lida com a sazonalidade.
+    - **AR** (AutoRegressive): Usa a relação entre uma observação e as observações anteriores.
+    - **I** (Integrated): Remove tendências dos dados para estabilizar a série.
+    - **MA** (Moving Average): Usa a dependência entre uma observação e os erros de previsão passados.
+    - **X** (eXogenous): Permite incluir variáveis externas que influenciam o resultado (neste caso, usamos o IPCA de Alimentos como uma variável externa).
     """
     
-    st.subheader('Previsão para Cesta Básica (R$) com SARIMAX', help=help_previsao)
+    st.subheader('Previsão para Cesta Básica (R$) com SARIMAX', help=help_sarimax)
 
     if dieese.empty:
-        st.warning('Adicione `dieese_cesta_2022.csv` para usar a previsão.')
+        st.info('Adicione `dieese_cesta_2022.csv` para usar a previsão SARIMAX.')
     elif not HAVE_SM:
-        st.info('Instale `statsmodels` para usar o modelo SARIMAX.')
+        st.info('Instale `statsmodels` e `scikit-learn` para usar o modelo SARIMAX.')
     else:
-        capitais_disponiveis = sorted(dieese['capital'].unique())
-        if not capitais_disponiveis:
-            st.error("Nenhuma capital encontrada nos dados do DIEESE após a limpeza.")
+        caps = sorted(dieese['capital'].unique().tolist())
+        
+        # Define o índice padrão para Brasília se existir, senão São Paulo
+        default_ix = 0
+        if 'Brasília' in caps:
+            default_ix = caps.index('Brasília')
+        elif 'São Paulo' in caps:
+            default_ix = caps.index('São Paulo')
+            
+        cap_sel = st.selectbox('Capital', caps, index=default_ix, key='prev_cap_cesta')
+        h_sarimax = st.slider('Horizonte de Previsão (meses)', 3, 12, 6, key='h_sarimax')
+
+        # Prepara dados para o modelo
+        s_cesta = dieese[dieese['capital'] == cap_sel].set_index('data')['valor_cesta'].sort_index()
+        s_cesta = ensure_ms_index(s_cesta.dropna())
+        
+        if s_cesta.empty:
+            st.warning(f"Não há dados históricos de cesta básica para {cap_sel} para treinar o modelo.")
         else:
-            default_ix = capitais_disponiveis.index('Brasília') if 'Brasília' in capitais_disponiveis else 0
-            cap_sel = st.selectbox('Capital', capitais_disponiveis, index=default_ix, key='prev_cap_cesta')
-            h_sarimax = st.slider('Horizonte (meses)', 3, 12, 6, key='h_sarimax')
+            s_ipca = ensure_ms_index(df['ipca_alimentos_mom'].dropna())
+            
+            # Cria uma série dummy de salário mínimo alinhada à cesta
+            sal_min_series = pd.Series(1320.0, index=s_cesta.index)
 
-            s_cesta = dieese[dieese['capital'] == cap_sel].set_index('data')['valor_cesta']
-            s_ipca = df['ipca_alimentos_mom']
+            res = None
+            metrics = {'MAE': None}
+            try:
+                model, res, X_used, metrics = fit_sarimax_cesta(s_cesta, s_ipca, sal_min_series)
+            except Exception as e:
+                st.error(f'Falha ao treinar o SARIMAX: {e}')
 
-            if s_cesta.empty:
-                st.warning(f"Não há dados válidos para '{cap_sel}' para treinar o modelo.")
-            else:
-                with st.spinner('Treinando modelo e gerando previsão...'):
-                    fc_cesta, metrics = fit_and_forecast_sarimax(s_cesta, s_ipca, h_sarimax)
+            st.metric('MAE (Erro Absoluto Médio na Validação)', _fmt_metric(metrics.get('MAE'), ' R$'))
+
+            if res is not None and not s_cesta.empty:
+                last_train_date = s_cesta.index.max()
+                fc_cesta = forecast_cesta(res, last_train_date=last_train_date, horizon=h_sarimax)
+
+                hist = s_cesta.rename('histórico').reset_index()
+                figp = go.Figure()
+                figp.add_trace(go.Scatter(x=hist['data'], y=hist['histórico'], mode='lines', name='Histórico (Cesta)'))
+                figp.add_trace(go.Scatter(x=fc_cesta['data'], y=fc_cesta['cesta_fc'], mode='lines+markers', name='Previsão (Cesta)'))
+                figp.add_trace(go.Scatter(x=fc_cesta['data'], y=fc_cesta['hi80'], mode='lines', line=dict(width=0), showlegend=False))
+                figp.add_trace(go.Scatter(x=fc_cesta['data'], y=fc_cesta['lo80'], mode='lines', fill='tonexty', name='Intervalo de Confiança 80%', line=dict(width=0)))
+                figp.update_layout(height=420, xaxis_title='Mês', yaxis_title='Cesta (R$)', title=f'Previsão do Custo da Cesta Básica em {cap_sel}')
+                st.plotly_chart(figp, use_container_width=True)
                 
-                if not fc_cesta.empty:
-                    # Plot
-                    hist = s_cesta.reset_index()
-                    figp = go.Figure()
-                    figp.add_trace(go.Scatter(x=hist['data'], y=hist['valor_cesta'], mode='lines', name='Histórico'))
-                    figp.add_trace(go.Scatter(x=fc_cesta['data'], y=fc_cesta['cesta_fc'], mode='lines+markers', name='Previsão'))
-                    figp.add_trace(go.Scatter(x=fc_cesta['data'], y=fc_cesta['lo80'], fill=None, mode='lines', line_color='rgba(0,0,0,0)', showlegend=False))
-                    figp.add_trace(go.Scatter(x=fc_cesta['data'], y=fc_cesta['hi80'], fill='tonexty', mode='lines', line_color='rgba(0,0,0,0)', name='IC 80%'))
-                    
-                    figp.update_layout(title=f'Previsão do Custo da Cesta Básica em {cap_sel}', height=500)
-                    st.plotly_chart(figp, use_container_width=True)
-                    st.dataframe(fc_cesta.set_index('data').round(2), use_container_width=True)
-                    to_download_button(fc_cesta, f'previsao_cesta_{cap_sel}.csv', '⬇️ Baixar Previsão (CSV)')
-                else:
-                    st.warning("Não foi possível treinar o modelo (provavelmente por falta de dados suficientes).")
+                st.caption(f"A previsão assume que o IPCA de alimentos e o salário mínimo permanecerão nos últimos valores conhecidos pelo modelo: R$ {fc_cesta['sal_min_usado'].iloc[0]:.2f}.")
+                st.dataframe(fc_cesta[['data', 'cesta_fc', 'lo80', 'hi80']].set_index('data').round(2), use_container_width=True)
+                to_download_button(fc_cesta, f'previsao_cesta_{cap_sel}.csv', '⬇️ Baixar Previsão da Cesta (CSV)')
+            else:
+                st.warning('Não foi possível gerar a previsão (série de dados muito curta ou erro no ajuste do modelo).')
+
 
 # ========== Relatório ==========
 with tab5:
