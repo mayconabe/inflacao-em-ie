@@ -328,7 +328,7 @@ alims_file = 'ipca_alimentos_2022.csv'
 alims_opt = load_csv(alims_file) if os.path.exists(alims_file) else pd.DataFrame()
 
 st.title('Inflação de Alimentos (IPCA) vs INPC — Visão Mensal e Anual')
-st.caption('Fontes: Ipeadata/IBGE (INPC), DIEESE (Cesta Básica).')
+st.caption('Fontes: Ipeadata/IBGE (INPC(Índice Nacional de Preços ao Consumidor)), DIEESE (Cesta Básica).')
 st.markdown(f'Qual a influência da inflação no preço bens essenciais como alimentos? Qual o impacto da inflação desses preços no poder de compra de familias de baixa renda?')
 
 if df.empty:
