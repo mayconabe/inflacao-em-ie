@@ -328,7 +328,7 @@ alims_file = 'ipca_alimentos_2022.csv'
 alims_opt = load_csv(alims_file) if os.path.exists(alims_file) else pd.DataFrame()
 
 st.title('Inflação de Alimentos (IPCA) vs INPC — Visão Mensal e Anual')
-st.caption('Fontes: IBGE/SIDRA (Tabela 7060), Ipeadata/IBGE (INPC), DIEESE (Cesta Básica).')
+st.caption('Fontes: Ipeadata/IBGE (INPC), DIEESE (Cesta Básica).')
 
 if df.empty:
     st.error('Arquivo `dataset_analitico.csv` não encontrado. Este arquivo é essencial para o dashboard.')
@@ -348,8 +348,12 @@ df_foco = df[df.index.year == ano_foco]
 # =========================
 # Abas
 # =========================
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    'Visão Geral', 'Alimentos', 'Poder de Compra', 'Previsões', 'Relatório'
+# tab1, tab2, tab3, tab4, tab5 = st.tabs([
+#     'Visão Geral', 'Alimentos', 'Poder de Compra', 'Previsões', 'Relatório'
+# ])
+
+tab1, tab3, tab4, tab5 = st.tabs([
+    'Visão Geral', 'Poder de Compra', 'Previsões', 'Relatório'
 ])
 
 # ========== Visão Geral ==========
@@ -357,15 +361,45 @@ with tab1:
     st.header(f'Análise Comparativa: Inflação de Alimentos (IE) vs. INPC em {ano_foco}')
     
     if not df_foco.empty:
+        # --- 1. Funções para gerar os textos de ajuda dinâmicos ---
+        def get_help_media_ie(ie_val, inpc_val):
+            if ie_val > inpc_val:
+                diferenca = (ie_val / inpc_val)
+                return f"Neste ano, a inflação média da comida foi {diferenca:.1f}x maior que a inflação geral. Isso mostra que os alimentos foram o principal fator de pressão no custo de vida."
+            else:
+                return "Neste ano, a inflação média da comida foi menor que a geral. Isso sugere que outros setores (energia, transporte, etc.) pesaram mais no orçamento."
+
+        def get_help_meses_piores(meses_val, total_meses):
+            if total_meses == 0: return "Sem dados."
+            percentual_meses = (meses_val / total_meses) * 100
+            if percentual_meses >= 75:
+                return f"Em {percentual_meses:.0f}% dos meses, a alta da comida superou a inflação geral. Isso indica uma pressão persistente e generalizada sobre o poder de compra."
+            elif percentual_meses >= 50:
+                return f"Em {percentual_meses:.0f}% dos meses (a maior parte do ano), a comida ficou mais cara que a média dos outros itens, indicando um problema consistente."
+            else:
+                return f"Apesar de não ser na maior parte do tempo, em {percentual_meses:.0f}% dos meses a comida subiu mais que a inflação geral, mostrando picos de volatilidade que afetam o orçamento."
+
+        def get_help_max_contrib(contrib_val):
+            return f"No pico do ano, os alimentos foram responsáveis, sozinhos, por {contrib_val:.2f} pontos percentuais de toda a inflação (INPC) daquele mês. Um indicador claro do impacto desproporcional da comida em momentos de crise."
+
+        # --- 2. Cálculo dos valores ---
         media_ie = df_foco['IE_essenciais_mom'].mean()
         media_inpc = df_foco['inpc_mom'].mean()
         meses_piores = int((df_foco['IE_essenciais_mom'] > df_foco['inpc_mom']).sum())
+        total_meses_no_ano = len(df_foco)
+        max_contrib = df_foco["contrib_ipca_alimentos_pp"].max()
         
+        # --- 3. Geração dos textos dinâmicos ---
+        help_ie_dinamico = get_help_media_ie(media_ie, media_inpc)
+        help_meses_dinamico = get_help_meses_piores(meses_piores, total_meses_no_ano)
+        help_contrib_dinamico = get_help_max_contrib(max_contrib)
+        
+        # --- 4. Criação dos indicadores com os 'helps' dinâmicos ---
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric('Média Mensal IE (Alimentos)', f'{media_ie:.2f}%')
-        c2.metric('Média Mensal INPC', f'{media_inpc:.2f}%')
-        c3.metric('Meses IE > INPC', f'{meses_piores} de {len(df_foco)}')
-        c4.metric('Máx. Contrib. Alimentos', f'{df_foco["contrib_ipca_alimentos_pp"].max():.2f} p.p.')
+        c1.metric('Média Mensal IE (Alimentos)', f'{media_ie:.2f}%', help=help_ie_dinamico)
+        c2.metric('Média Mensal INPC', f'{media_inpc:.2f}%', help="Representa a média da inflação geral para famílias de baixa renda.")
+        c3.metric('Meses IE > INPC', f'{meses_piores} de {total_meses_no_ano}', help=help_meses_dinamico)
+        c4.metric('Máx. Contrib. Alimentos', f'{max_contrib:.2f} p.p.', help=help_contrib_dinamico)
 
         ie_acum_pct = ((1 + df_foco['IE_essenciais_mom'] / 100).prod() - 1) * 100
         st.metric(f'IE Acumulado em {ano_foco}', f'{ie_acum_pct:.1f}%')
@@ -377,14 +411,14 @@ with tab1:
         )
 
         st.markdown('---')
-        st.subheader(f'Variação Mensal ({ano_foco})')
+        st.subheader(f'Variação Mensal ({ano_foco}) — IE vs. INPC')
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df_foco.index, y=df_foco['IE_essenciais_mom'], mode='lines+markers', name='IE (Alimentos)'))
         fig.add_trace(go.Scatter(x=df_foco.index, y=df_foco['inpc_mom'], mode='lines+markers', name='INPC'))
         fig.update_layout(height=420, xaxis_title='Mês', yaxis_title='% ao mês', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
         st.plotly_chart(fig, use_container_width=True)
 
-        st.subheader(f'Inflação Acumulada no Ano ({ano_foco})')
+        st.subheader(f'Inflação Acumulada no Ano ({ano_foco}) — IE vs. INPC')
         fig_ac = go.Figure()
         fig_ac.add_trace(go.Scatter(x=df_foco.index, y=100 * df_foco['IE_acum_no_ano'], mode='lines+markers', name='IE Acumulado'))
         fig_ac.add_trace(go.Scatter(x=df_foco.index, y=100 * df_foco['INPC_acum_no_ano'], mode='lines+markers', name='INPC Acumulado'))
@@ -411,86 +445,61 @@ with tab1:
     st.dataframe(tbl.round(2).reset_index().rename(columns={'index': 'ano'}), use_container_width=True)
 
 # ========== Alimentos ==========
-with tab2:
-    st.header(f'IPCA - Alimentação e Bebidas (var. % mensal) em {ano_foco}')
-    if alims_opt.empty:
-        st.info('Para esta aba, adicione o arquivo `ipca_alimentos_2022.csv` (colunas: `data`, `valor`).')
-    else:
-        alims_opt = normalize_date_column(alims_opt, col='data')
-        aux = alims_opt.set_index('data').sort_index()
-        aux = aux[aux.index.year == ano_foco] if not aux.empty else aux
-        if not aux.empty:
-            st.line_chart(aux[['valor']].rename(columns={'valor': 'IPCA Alimentos (% m/m)'}))
-        else:
-            st.warning(f"Não há dados de IPCA Alimentos para o ano {ano_foco}.")
+# with tab2:
+#     st.header(f'IPCA - Alimentação e Bebidas (var. % mensal) em {ano_foco}')
+#     if alims_opt.empty:
+#         st.info('Para esta aba, adicione o arquivo `ipca_alimentos_2022.csv` (colunas: `data`, `valor`).')
+#     else:
+#         alims_opt = normalize_date_column(alims_opt, col='data')
+#         aux = alims_opt.set_index('data').sort_index()
+#         aux = aux[aux.index.year == ano_foco] if not aux.empty else aux
+#         if not aux.empty:
+#             st.line_chart(aux[['valor']].rename(columns={'valor': 'IPCA Alimentos (% m/m)'}))
+#         else:
+#             st.warning(f"Não há dados de IPCA Alimentos para o ano {ano_foco}.")
 
 # ========== Poder de Compra ==========
 with tab3:
-    st.header('Poder de Compra — Cesta Básica (DIEESE)')
-    
-    if dieese.empty:
-        st.info('Adicione o arquivo `dieese_cesta_2022.csv` (colunas: `data`, `capital`, `valor_cesta`) para habilitar esta aba.')
-    else:
-        c1, c2 = st.columns([1, 3])
-        salario_min = c1.number_input('Salário Mínimo de Referência (R$)', value=1320.0, step=10.0, format="%.2f")
-        caps = sorted(dieese['capital'].unique())
-        cap_sel = c1.selectbox('Capital', caps, index=caps.index('São Paulo') if 'São Paulo' in caps else 0)
-        
-        df_cap = dieese[dieese['capital'] == cap_sel].set_index('data').sort_index()
-        s_foco = df_cap[df_cap.index.year == ano_foco]
-        
-        if s_foco.empty:
-            st.warning(f'Não há dados da cesta para {cap_sel} em {ano_foco}.')
-        else:
-            s_foco['cestas_por_salario'] = salario_min / s_foco['valor_cesta']
-            s_foco['cesta_pct_salario'] = 100 * s_foco['valor_cesta'] / salario_min
-            
-            ini, fim = s_foco.iloc[0], s_foco.iloc[-1]
-            
-            with c2:
-                st.subheader(f'Análise em {cap_sel} ({ano_foco})')
-                m1, m2, m3 = st.columns(3)
-                m1.metric(f'Cestas por Salário (Início {ano_foco})', f'{ini["cestas_por_salario"]:.2f}')
-                m2.metric(f'Cestas por Salário (Fim {ano_foco})', f'{fim["cestas_por_salario"]:.2f}', f'{fim["cestas_por_salario"] - ini["cestas_por_salario"]:.2f}')
-                m3.metric(f'% Salário para 1 Cesta (Fim {ano_foco})', f'{fim["cesta_pct_salario"]:.1f}%', f'{fim["cesta_pct_salario"] - ini["cesta_pct_salario"]:+.1f} p.p.')
-
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=s_foco.index, y=s_foco['cestas_por_salario'], mode='lines+markers', name='Cestas por Salário'))
-            fig.update_layout(height=420, xaxis_title='Mês', yaxis_title='Quantidade de Cestas', title=f'Poder de Compra em {cap_sel} ({ano_foco})')
-            st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown('---')
-    st.subheader('Composição da Cesta por Itens')
+    st.header(f'Composição da Cesta de Alimentos em {ano_foco}')
     if dieese_det.empty:
-        st.info('Adicione `dieese_cesta_2022_detalhado.csv` para ver a composição por itens.')
+        st.warning('Arquivo `dieese_cesta_2022_detalhado.csv` não encontrado ou inválido.')
     else:
         caps_det = sorted(dieese_det['capital'].unique())
-        cap_sel_det = st.selectbox('Capital (Itens)', caps_det, index=caps_det.index('São Paulo') if 'São Paulo' in caps_det else 0)
-        det = dieese_det[(dieese_det['capital'] == cap_sel_det) & (dieese_det['data'].dt.year == ano_foco)].copy()
+        cap_sel_det = st.selectbox('Capital', caps_det, index=caps_det.index('São Paulo') if 'São Paulo' in caps_det else 0, key='det_cap')
         
+        det = dieese_det[(dieese_det['capital'] == cap_sel_det) & (dieese_det['data'].dt.year == ano_foco)].copy()
+
         if det.empty:
-            st.warning(f'Não há composição detalhada para {cap_sel_det} em {ano_foco}.')
+            st.warning(f'Não há dados detalhados para {cap_sel_det} em {ano_foco}.')
         else:
             possiveis_itens = ['carne', 'leite', 'feijao', 'arroz', 'farinha', 'batata', 'tomate', 'pao', 'cafe', 'banana', 'acucar', 'oleo', 'manteiga']
             itens_existentes = [c for c in possiveis_itens if c in det.columns and det[c].notna().any()]
             
-            # Calcula a média de participação e pega os 5 mais relevantes por padrão
-            media_participacao = (det[itens_existentes].div(det['valor_cesta'], axis=0)).mean().sort_values(ascending=False)
-            default_selection = media_participacao.head(5).index.tolist()
+            default_selection = itens_existentes[:5] if len(itens_existentes) >= 5 else itens_existentes
+            selecao = st.multiselect('Selecione os itens para visualizar', itens_existentes, default=default_selection)
 
-            selecao = st.multiselect('Itens para Análise', itens_existentes, default=default_selection)
             if selecao:
-                det['data'] = pd.to_datetime(det['data'])
-                det_plot = det[['data'] + selecao].set_index('data').sort_index()
+                det_plot = det.set_index('data')
+
+                # --- INÍCIO DA ALTERAÇÃO DO GRÁFICO ---
+                # O gráfico antigo de barras foi substituído por este de linhas.
+                st.subheader('Evolução do Custo dos Itens (R$)')
                 
-                # Gráfico de participação percentual (stacked bar)
-                st.markdown('**Participação Percentual dos Itens no Custo da Cesta**')
-                part_pct = 100 * det_plot.div(det.set_index('data')['valor_cesta'], axis=0)
-                fig_stack = go.Figure()
-                for col in selecao:
-                    fig_stack.add_bar(name=col.capitalize(), x=part_pct.index, y=part_pct[col])
-                fig_stack.update_layout(barmode='stack', height=420, xaxis_title='Mês', yaxis_title='% da Cesta', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-                st.plotly_chart(fig_stack, use_container_width=True)
+                fig_linhas = go.Figure()
+                for item in selecao:
+                    fig_linhas.add_trace(go.Scatter(
+                        x=det_plot.index, 
+                        y=det_plot[item],
+                        mode='lines+markers',
+                        name=item.capitalize()
+                    ))
+                
+                fig_linhas.update_layout(
+                    xaxis_title='Mês',
+                    yaxis_title='Custo Mensal (R$)',
+                    legend_title='Itens'
+                )
+                st.plotly_chart(fig_linhas, use_container_width=True)
 
 # ========== Previsões ==========
 with tab4:
@@ -557,7 +566,7 @@ with tab4:
 
 # ========== Relatório ==========
 with tab5:
-    st.header(f'Relatório Executivo ({ano_foco})')
+    st.header(f'Relatório ({ano_foco})')
     
     def pct(x): return f'{x:.1f}%' if pd.notna(x) else 'N/A'
     
@@ -569,7 +578,7 @@ with tab5:
         ie_acum_pct = ((1 + df_foco['IE_essenciais_mom'] / 100).prod() - 1) * 100
         inpc_acum_pct = ((1 + df_foco['inpc_mom'] / 100).prod() - 1) * 100
 
-        st.markdown('### 📊 **IE (Alimentos) vs. INPC**')
+        st.markdown('### **IE (Alimentos) vs. INPC**')
         st.markdown(
             f"""
             - **Acumulado no Ano:** A inflação específica de alimentos (IE) fechou em **{pct(ie_acum_pct)}**, enquanto o INPC geral acumulou **{pct(inpc_acum_pct)}**. A diferença evidencia o peso dos alimentos na inflação sentida pela população de baixa renda.
@@ -607,9 +616,25 @@ with tab5:
             ini_rel, fim_rel = s_foco_rel.iloc[0], s_foco_rel.iloc[-1]
             delta_cestas = fim_rel['cestas_por_salario'] - ini_rel['cestas_por_salario']
             delta_pct_salario = fim_rel['cesta_pct_salario'] - ini_rel['cesta_pct_salario']
+
+            # 1. Calcule a variação percentual e guarde em uma variável
+            variacao_percentual = ((fim_rel['valor_cesta'] - ini_rel['valor_cesta']) / ini_rel['valor_cesta']) * 100
+
+            # 2. Defina o texto e o valor a ser exibido
+            if variacao_percentual == 0:
+                texto_final = "(O valor manteve-se estável)"
+            else:
+                # Escolhe a palavra "Aumento" ou "Queda"
+                status = "Aumento" if variacao_percentual > 0 else "Queda"
+                
+                # Usa o valor absoluto (abs) para que nunca apareça "Queda de -10%"
+                valor_abs_percentual = abs(variacao_percentual)
+                
+                # Monta a frase final formatando com 1 casa decimal
+                texto_final = f"({status} de {valor_abs_percentual:.1f}%)"
             
             st.markdown(f"""
-            - **Evolução do Custo:** Em **{cap_sel_rel}**, o custo da cesta básica variou de **R$ {ini_rel['valor_cesta']:.2f}** no início do ano para **R$ {fim_rel['valor_cesta']:.2f}** no final.
+            - **Evolução do Custo:** Em **{cap_sel_rel}**, o custo da cesta básica variou de `R$ {ini_rel['valor_cesta']:.2f}` no início do ano para `R$ {fim_rel['valor_cesta']:.2f}` no final. {texto_final}
             - **Perda de Poder de Compra:** Com um salário de **R$ {sal_rel:.2f}**, o número de cestas que uma pessoa poderia comprar **caiu em {abs(delta_cestas):.2f}** ao longo do ano.
             - **Comprometimento da Renda:** Ao final de {ano_foco}, era necessário comprometer **{fim_rel['cesta_pct_salario']:.1f}%** do salário mínimo para adquirir uma única cesta básica, um aumento de **{delta_pct_salario:.1f} pontos percentuais** em relação ao início do ano.
             """)
