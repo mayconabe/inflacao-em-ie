@@ -494,24 +494,8 @@ with tab3:
 
 # ========== Previsões ==========
 with tab4:
-    st.header('Previsões de Curto Prazo')
 
-    st.subheader('Previsão para IPCA Alimentos (% m/m)')
-    h_ets = st.slider('Horizonte de Previsão (meses)', 3, 12, 6, key='h_ets')
-    
-    # Usando a série completa para a previsão, não apenas a do ano foco
-    s_ipca_total = ensure_ms_index(df['ipca_alimentos_mom'].dropna())
-    fc_ets = monthly_forecast(s_ipca_total, h=h_ets, method='ets' if HAVE_SM else 'naive')
-    
-    fig_ets = go.Figure()
-    fig_ets.add_trace(go.Scatter(x=s_ipca_total.tail(24).index, y=s_ipca_total.tail(24).values, mode='lines', name='Histórico Recente'))
-    fig_ets.add_trace(go.Scatter(x=fc_ets['data'], y=fc_ets['forecast'], mode='lines+markers', name='Previsão ETS'))
-    fig_ets.update_layout(height=400, title='IPCA Alimentos - Histórico e Previsão', yaxis_title='% m/m')
-    st.plotly_chart(fig_ets, use_container_width=True)
-    st.dataframe(fc_ets.set_index('data').style.format('{:.2f}%'), use_container_width=True)
-
-    st.markdown('---')
-    st.subheader('Previsão para Cesta Básica (R$) com SARIMAX')
+    st.header('Previsão para Cesta Básica (R$) com SARIMAX')
 
     if dieese.empty:
         st.info('Adicione `dieese_cesta_2022.csv` para usar a previsão SARIMAX.')
