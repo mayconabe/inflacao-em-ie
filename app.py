@@ -503,8 +503,19 @@ with tab3:
 
 # ========== Previsões ==========
 with tab4:
+    st.header('Previsões de Curto Prazo')
 
-    st.header('Previsão para Cesta Básica (R$) com SARIMAX')
+    help_sarimax = """
+    O SARIMAX é um modelo estatístico avançado para prever valores futuros em uma série de dados que possui tendências e padrões sazonais (que se repetem em períodos fixos, como anualmente).
+
+    - **S** (Seasonal): Lida com a sazonalidade.
+    - **AR** (AutoRegressive): Usa a relação entre uma observação e as observações anteriores.
+    - **I** (Integrated): Remove tendências dos dados para estabilizar a série.
+    - **MA** (Moving Average): Usa a dependência entre uma observação e os erros de previsão passados.
+    - **X** (eXogenous): Permite incluir variáveis externas que influenciam o resultado (neste caso, usamos o IPCA de Alimentos como uma variável externa).
+    """
+    
+    st.subheader('Previsão para Cesta Básica (R$) com SARIMAX', help=help_sarimax)
 
     if dieese.empty:
         st.info('Adicione `dieese_cesta_2022.csv` para usar a previsão SARIMAX.')
