@@ -1,31 +1,120 @@
-# Documentação do Banco de Dados - Projeto Inflação e Poder de Compra
+# 🛒 Monitor de Inflação e Poder de Compra (MLOps)
 
-## 1. Visão Geral
-* **Nome do Dataset:** Inflação de Alimentos e Cesta Básica (Consolidado)
-* **Fontes:** * IBGE (SIDRA - Tabela 7060 e INPC)
-    * DIEESE (Pesquisa Nacional da Cesta Básica de Alimentos)
-* **Contexto do Negócio:** O conjunto de dados visa permitir a análise do impacto da inflação específica de alimentos (IPCA-Alimentos/Bebidas) no custo de vida, comparando-o com o INPC (inflação para baixa renda) e com o custo nominal da Cesta Básica em diferentes capitais brasileiras. O objetivo é mensurar a perda de poder de compra.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://inflacao-em-ie.streamlit.app/)  
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue)  
+![Status](https://img.shields.io/badge/Status-Concluído-success)
 
-## 2. Modelo Conceitual
-O banco de dados é composto por séries temporais mensais unificadas pela data de referência (`data`).
-* **Tabela Principal (dataset_analitico.csv):** Contém os índices nacionais de inflação (IPCA Geral, IPCA Alimentos, INPC).
-* **Tabela Auxiliar (dieese_cesta_2022.csv):** Contém os valores nominais (R$) da cesta básica desagregados por Capital/UF.
+Este projeto é uma solução completa de **Data Science e MLOps** desenvolvida para analisar o impacto da inflação de alimentos no custo de vida e no poder de compra das famílias de baixa renda nas capitais brasileiras.
 
-## 3. Dicionário de Dados
+🔗 **Acesse o Dashboard Online:**  
+👉 https://inflacao-em-ie.streamlit.app/
 
-| Coluna | Tipo de Dado | Descrição | Exemplo/Valores Válidos |
-| :--- | :--- | :--- | :--- |
-| `data` | datetime64[ns] | Data de referência do índice (Primeiro dia do mês). Normalizada para YYYY-MM-01. | `2023-01-01`, `2023-02-01` |
-| `IE_essenciais_mom` | float64 | Variação mensal (%) do subgrupo Alimentos e Bebidas (IPCA). | `0.5`, `-0.1` |
-| `inpc_mom` | float64 | Variação mensal (%) do Índice Nacional de Preços ao Consumidor (INPC). | `0.4` |
-| `capital` | object (string) | Nome da Capital (Unidade Geográfica do DIEESE). | `São Paulo`, `Brasília`, `Rio Branco`* |
-| `valor_cesta` | float64 | Custo nominal da Cesta Básica calculado pelo DIEESE. | `750.00`, `800.50` |
-| `sal_min` | float64 | Valor do Salário Mínimo vigente no mês de referência. | `1212.00`, `1320.00` |
+---
 
-*\*Nota: Novas capitais inseridas na expansão DIEESE/2025 podem apresentar histórico reduzido.*
+## 🎯 Problema de Pesquisa e Objetivo
 
-## 4. Pré-Processamento Realizado
-1.  **Normalização de Datas:** Conversão de múltiplos formatos (`MM/YY`, `YYYY-MM`, `YYYYMM`) para o padrão ISO `YYYY-MM-01`.
-2.  **Tratamento de Anos Ambíguos:** Datas com ano em dois dígitos (ex: `99`) foram convertidas utilizando um cutoff móvel (anos > 25 são 19xx, anos <= 25 são 20xx).
-3.  **Filtragem de Ruído:** Remoção de registros com datas anteriores a 1990 (inconsistentes com o escopo do plano Real/pós-hiperinflação moderna).
-4.  **Deduplicação:** Remoção de colunas de data duplicadas geradas na fusão de datasets.
+### **Questão de Pesquisa**
+> *"Qual o impacto da inflação do grupo de Alimentos e Bebidas (IPCA) no custo nominal da Cesta Básica e como isso corroeu o poder de compra (horas de trabalho) das famílias de baixa renda?"*
+
+### **Objetivos**
+1. **Monitorar:** Comparar inflação oficial (IPCA/INPC) vs custo real da cesta (DIEESE).  
+2. **Mensurar:** Estimar horas de trabalho necessárias para comprar a cesta básica.  
+3. **Regionalizar:** Mapear desigualdades entre capitais brasileiras.  
+4. **Prever:** Projetar custo futuro da cesta usando modelos SARIMAX.
+
+---
+
+## 🛠️ Arquitetura do Projeto (Pipeline MLOps)
+
+O projeto segue boas práticas de MLOps, garantindo reprodutibilidade, modularidade e separação entre backend e frontend.
+
+### 📁 Estrutura de Diretórios
+
+```plaintext
+📂 inflacao-em-ie/
+│
+├── 📂 data/                     # Armazenamento de dados
+│   ├── 📂 raw/                  # Dados brutos (IBGE/DIEESE)
+│   └── 📂 processed/            # Dados tratados pelo pipeline
+│
+├── 📂 models/                   # Modelos de Machine Learning
+│   └── all_capitals_models.pkl  # Modelos SARIMAX serializados
+│
+├── 📂 src/                      # Backend (pipeline)
+│   ├── data_ingestion.py        # Leitura robusta (.csv/.xls)
+│   ├── data_processing.py       # ETL, limpeza, normalização
+│   └── modeling.py              # Treinamento + serialização (joblib)
+│
+├── app.py                       # Dashboard Streamlit (frontend)
+├── database_doc.md              # Documentação técnica
+└── requirements.txt             # Dependências
+```
+
+---
+
+## 📊 Funcionalidades do Dashboard
+
+### **📈 Visão Geral da Inflação**
+- Comparação IPCA (Alimentos) × INPC (Geral)  
+- Identificação de períodos de pressão inflacionária
+
+### **🗺️ Mapa da Desigualdade (Georreferenciado)**
+- Mapa coroplético interativo por capital  
+- Exibição do custo da cesta e comprometimento da renda
+
+### **⏱️ Poder de Compra & Horas de Trabalho**
+- Cálculo do número de horas necessárias p/ comprar a cesta  
+- Indicador familiar (4 pessoas) com alerta quando alimentação > renda
+
+### **🤖 Previsões com IA (SARIMAX)**
+- Previsão entre 3 e 12 meses  
+- Intervalos de confiança (80%)  
+- Inferência em tempo real com modelos pré-treinados
+
+### **📚 Análises Avançadas**
+- Simulador de *inflação pessoal*  
+- Correlação entre inflação local e nacional
+
+---
+
+## 🚀 Como Rodar Localmente
+
+### **1. Clonar o repositório**
+```bash
+git clone https://github.com/mayconabe/inflacao-em-ie.git
+cd inflacao-em-ie
+```
+
+### **2. Instalar dependências**
+```bash
+pip install -r requirements.txt
+```
+
+### **3. Executar pipeline de modelagem**
+Processa dados brutos, treina modelos e salva o `.pkl`.
+
+```bash
+python src/modeling.py
+```
+
+### **4. Iniciar o Dashboard**
+```bash
+streamlit run app.py
+```
+
+---
+
+## 🗂️ Fontes de Dados
+
+| Fonte | Descrição |
+|-------|-----------|
+| **IBGE (SIDRA)** | IPCA (Alimentos) e INPC Geral |
+| **DIEESE** | Cesta Básica de Alimentos – série histórica |
+| **GeoJSON** | Malha territorial (CodeForAmerica) |
+
+---
+
+## 📝 Autoria
+
+Desenvolvido como parte da avaliação final de **Data Science**.  
+Envolve técnicas de **Engenharia de Dados**, **Séries Temporais**, **Visualização** e **MLOps**, aplicadas para investigar um problema econômico real.
