@@ -52,6 +52,43 @@ O projeto segue boas práticas de MLOps, garantindo reprodutibilidade, modularid
 
 ---
 
+## 🗂️ Documentação do Banco de Dados
+
+Esta seção detalha a origem, estrutura e tratamento dos dados utilizados no projeto.
+
+### 1. Visão Geral e Fontes
+* **Nome do Dataset:** Monitor de Inflação de Alimentos e Poder de Compra (Consolidado).
+* **Fontes Originais:**
+    * **IBGE (SIDRA):** Tabela 7060 (IPCA - Subgrupo Alimentação e Bebidas) e Série Histórica do INPC.
+    * **DIEESE:** Pesquisa Nacional da Cesta Básica de Alimentos (Série Histórica por Capital).
+    * **Governo Federal:** Histórico oficial do Salário Mínimo vigente.
+
+### 2. Modelo Conceitual
+O banco de dados final é tabular (Série Temporal Mensal), resultante da unificação das fontes através de uma chave temporal comum (`Data`) e geográfica (`Capital`).
+
+### 3. Dicionário de Dados
+
+| Variável | Tipo de Dado | Descrição | Exemplo |
+| :--- | :--- | :--- | :--- |
+| `data` | `datetime` | Data de referência, normalizada para o dia 1 do mês (YYYY-MM-01). | `2024-01-01` |
+| `capital` | `string` | Nome da capital onde a Cesta Básica foi coletada. | `São Paulo` |
+| `UF` | `string` | Sigla da Unidade Federativa (para plotagem no mapa). | `SP`, `DF` |
+| `valor_cesta` | `float` | Custo nominal mensal da Cesta Básica (DIEESE). | `750.40` |
+| `IE_essenciais_mom` | `float` | Variação mensal (%) do IPCA - Alimentos e Bebidas. | `0.55` |
+| `inpc_mom` | `float` | Variação mensal (%) do INPC Geral (Baixa Renda). | `0.45` |
+| `salario_minimo` | `float` | Valor nominal do Salário Mínimo Nacional vigente. | `1412.00` |
+| `horas_trabalho` | `float` | **(Derivada)** Horas laborais necessárias para adquirir 1 Cesta (Base 220h). | `105.5` |
+| `pct_comprometido` | `float` | **(Derivada)** % do salário mínimo bruto comprometido por 1 Cesta. | `58.2` |
+
+### 4. Pré-Processamento (Pipeline ETL)
+O script `src/data_processing.py` executa as seguintes transformações:
+* **Normalização de Datas:** Conversão de formatos heterogêneos (`MM-YYYY`, `jan/21`) para ISO e correção de anos com 2 dígitos.
+* **Transformação Wide-to-Long:** Aplicação de `melt` para transformar o dataset DIEESE (colunas de cidades) em formato longo.
+* **Limpeza:** Remoção de registros anteriores a 1994 (Plano Real) e conversão de decimais.
+* **Enriquecimento:** Cálculo automático das métricas de poder de compra.
+
+---
+
 ## 📊 Funcionalidades do Dashboard
 
 ### **📈 Visão Geral da Inflação**
